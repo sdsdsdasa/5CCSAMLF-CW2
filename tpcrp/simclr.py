@@ -68,14 +68,9 @@ def nt_xent_loss(z1, z2, temperature=0.5):
     return loss
 
 
-def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu',
-                 accuracy_callback=None):
+def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu'):
     """Train SimCLR on unlabeled+labeled data (pairs of augmented views).
     Paper: SGD, lr=0.4, momentum=0.9, weight_decay=1e-4, cosine scheduler, 500 epochs.
-
-    Args:
-        accuracy_callback: optional callable() → float, called every 10 epochs
-                           to report current accuracy alongside loss.
     """
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=lr,
@@ -99,11 +94,7 @@ def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu',
         scheduler.step()
         if epoch % 10 == 0 or epoch == 1:
             avg = total_loss / len(loader)
-            if accuracy_callback is not None:
-                acc = accuracy_callback(model)
-                print(f"  SimCLR epoch {epoch:3d}/{epochs} | loss {avg:.4f} | acc {acc*100:.2f}%")
-            else:
-                print(f"  SimCLR epoch {epoch:3d}/{epochs} | loss {avg:.4f}")
+            print(f"  SimCLR epoch {epoch:3d}/{epochs} | loss {avg:.4f}")
 
     return model
 
