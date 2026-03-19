@@ -11,17 +11,17 @@ import csv
 import torch
 import matplotlib.pyplot as plt
 
-from tpcrp.dataset import get_cifar10, initial_labeled_set, make_embed_loader
+from tpcrp.dataset import get_cifar10, initial_labeled_set
 from tpcrp.active_loop import run_tpcrp
 
 
 def main():
-    # ── Config ──────────────────────────────────────────────────────────────
-    BUDGET          = 10      # samples queried per AL iteration
-    MAX_LABELED     = 100     # stop when labeled set reaches this size
+    # ── Config (paper's actual settings, Appendix F) ────────────────────────
+    BUDGET          = 10      # B — samples queried per AL iteration
+    MAX_LABELED     = 100     # stop when |L| reaches this (paper: 10–300)
     INITIAL_PER_CLS = 1       # 1 labeled example per class → |L0| = 10
-    SIMCLR_EPOCHS   = 100     # SimCLR training epochs per iteration
-    CLF_EPOCHS      = 100     # Classifier training epochs per iteration
+    SIMCLR_EPOCHS   = 500     # paper: SimCLR trained for 500 epochs per iteration
+    CLF_EPOCHS      = 200     # paper: linear eval uses 2x base epochs (200)
     SEED            = 42
     DATA_DIR        = './data'
     OUT_DIR         = './results'

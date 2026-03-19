@@ -34,9 +34,12 @@ class SimCLRModel(nn.Module):
         return h, z
 
     def encode(self, x):
-        """Return raw encoder embeddings (no projection head)."""
+        """Return L2-normalised encoder embeddings (no projection head).
+        Paper uses L2-normalised 512-dim penultimate layer as embedding space.
+        """
         with torch.no_grad():
             h = self.encoder(x).flatten(1)
+            h = F.normalize(h, dim=1)
         return h
 
 
@@ -65,10 +68,14 @@ def nt_xent_loss(z1, z2, temperature=0.5):
     return loss
 
 
-def train_simclr(model, loader, epochs=100, lr=3e-4, device='cpu'):
-    """Train SimCLR on unlabeled+labeled data (pairs of augmented views)."""
+def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu'):
+    """Train SimCLR on unlabeled+labeled data (pairs of augmented views).
+    Paper: SGD, lr=0.4, momentum=0.9, weight_decay=1e-4, cosine scheduler, 500 epochs.
+    """
     model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr,
+                                momentum=0.9, weight_decay=1e-4,
+                                nesterov=False)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=epochs)
 

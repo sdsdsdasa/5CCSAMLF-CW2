@@ -24,11 +24,15 @@ class LinearClassifier(nn.Module):
         return self.fc(h)
 
 
-def train_classifier(model, train_loader, epochs=100, lr=1e-2, device='cpu'):
-    """Train the linear classifier on the labeled set."""
+def train_classifier(model, train_loader, epochs=200, lr=2.5, device='cpu'):
+    """Train the linear classifier on the labeled set.
+    Paper (linear eval): SGD, lr=2.5, Nesterov momentum=0.9, 200 epochs, cosine scheduler.
+    Weights are re-initialised each AL iteration by constructing a new LinearClassifier.
+    """
     model.to(device)
     optimizer = torch.optim.SGD(model.fc.parameters(), lr=lr,
-                                momentum=0.9, weight_decay=1e-4)
+                                momentum=0.9, weight_decay=0,
+                                nesterov=True)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=epochs)
 
