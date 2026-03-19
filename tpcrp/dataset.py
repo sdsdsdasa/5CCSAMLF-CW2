@@ -59,6 +59,21 @@ class PairDataset(Dataset):
         return v1, v2
 
 
+class IndexedSubset(Dataset):
+    """Subset of a dataset by index list, with a given transform."""
+    def __init__(self, ds, indices, transform):
+        self.ds = ds
+        self.indices = indices
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, i):
+        img, label = self.ds[self.indices[i]]
+        return self.transform(img), label
+
+
 def get_cifar10(data_dir='./data'):
     """Return raw CIFAR-10 train and test datasets (no transform applied)."""
     train = datasets.CIFAR10(data_dir, train=True, download=True,
@@ -97,18 +112,7 @@ def make_simclr_loader(train_dataset, indices, batch_size=256, num_workers=2):
 
 def make_embed_loader(train_dataset, indices, batch_size=512, num_workers=2):
     """DataLoader with eval transform for extracting embeddings."""
-    class EvalSubset(Dataset):
-        def __init__(self, ds, idx, tfm):
-            self.ds = ds
-            self.idx = idx
-            self.tfm = tfm
-        def __len__(self):
-            return len(self.idx)
-        def __getitem__(self, i):
-            img, label = self.ds[self.idx[i]]
-            return self.tfm(img), label
-
-    ds = EvalSubset(train_dataset, indices, eval_transform)
+    ds = IndexedSubset(train_dataset, indices, eval_transform)
     return DataLoader(ds, batch_size=batch_size, shuffle=False,
                       num_workers=num_workers, pin_memory=True)
 
@@ -116,18 +120,7 @@ def make_embed_loader(train_dataset, indices, batch_size=512, num_workers=2):
 def make_classifier_loader(train_dataset, indices, batch_size=128,
                             num_workers=2, augment=True):
     """DataLoader for classifier training on labeled set."""
-    class LabeledSubset(Dataset):
-        def __init__(self, ds, idx, tfm):
-            self.ds = ds
-            self.idx = idx
-            self.tfm = tfm
-        def __len__(self):
-            return len(self.idx)
-        def __getitem__(self, i):
-            img, label = self.ds[self.idx[i]]
-            return self.tfm(img), label
-
     tfm = train_transform if augment else eval_transform
-    ds = LabeledSubset(train_dataset, indices, tfm)
+    ds = IndexedSubset(train_dataset, indices, tfm)
     return DataLoader(ds, batch_size=batch_size, shuffle=True,
                       num_workers=num_workers, pin_memory=True)
