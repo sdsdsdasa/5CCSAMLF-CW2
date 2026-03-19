@@ -5,7 +5,6 @@ claude.md
 
 # generated data and outputs
 data/
-results/
 venv/
 
 # Byte-compiled / optimized / DLL files
