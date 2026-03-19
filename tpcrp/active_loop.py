@@ -14,6 +14,7 @@ Each iteration:
 
 import numpy as np
 import torch
+from sklearn.linear_model import LogisticRegression
 
 from tpcrp.simclr import SimCLRModel, train_simclr, extract_embeddings
 from tpcrp.clustering import run_kmeans, select_query_indices, MAX_CLUSTERS
@@ -63,8 +64,37 @@ def run_tpcrp(train_dataset, test_loader, device,
         print("  Training SimCLR...")
         simclr_model = SimCLRModel(proj_dim=128)
         simclr_loader = make_simclr_loader(train_dataset, all_idx, batch_size=512)
+
+        # Build loaders for accuracy probing during SimCLR training
+        labeled_embed_loader = make_embed_loader(train_dataset, labeled_idx, batch_size=512)
+        test_embed_loader    = make_embed_loader(train_dataset,
+                                                 list(range(len(train_dataset))),
+                                                 batch_size=512)
+
+        # Accuracy callback: fast LogisticRegression probe on current embeddings
+        def accuracy_callback(model):
+            train_embs, train_labels = extract_embeddings(model, labeled_embed_loader, device)
+            # Use all_idx for test proxy — actual test eval done after classifier training
+            all_embs, all_labels = extract_embeddings(
+                model,
+                make_embed_loader(train_dataset, all_idx, batch_size=512),
+                device
+            )
+            # Fit on labeled, evaluate on full pool as proxy
+            labeled_pos = list(range(len(labeled_idx)))
+            X_train = train_embs
+            y_train = all_labels[:len(labeled_idx)]
+            X_test  = all_embs[len(labeled_idx):]
+            y_test  = all_labels[len(labeled_idx):]
+            if len(set(y_train)) < 2 or len(X_test) == 0:
+                return 0.0
+            clf = LogisticRegression(max_iter=200, C=0.1, random_state=42)
+            clf.fit(X_train, y_train)
+            return clf.score(X_test, y_test)
+
         simclr_model = train_simclr(simclr_model, simclr_loader,
-                                    epochs=simclr_epochs, device=device)
+                                    epochs=simclr_epochs, device=device,
+                                    accuracy_callback=accuracy_callback)
 
         # --- Step 2: Extract L2-normalised embeddings ---
         print("  Extracting embeddings...")

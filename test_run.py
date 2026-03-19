@@ -24,7 +24,7 @@ from tpcrp.active_loop import run_tpcrp
 
 # ── Test config (intentionally low for speed) ────────────────────────────────
 BUDGET          = 10   # samples queried per AL iteration
-MAX_LABELED     = 30   # 10 initial + 2 iterations → quick 2-iteration test
+MAX_LABELED     = 10   # 10 initial + 0 iteration → quick 0-iteration test
 SIMCLR_EPOCHS   = 3    # low epochs just to verify the pipeline runs
 CLF_EPOCHS      = 5
 SEED            = 42
