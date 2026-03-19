@@ -32,61 +32,63 @@ DATA_DIR        = './data'
 OUT_DIR         = './results/test'
 # ─────────────────────────────────────────────────────────────────────────────
 
-os.makedirs(OUT_DIR, exist_ok=True)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"Device: {device}")
-if torch.cuda.is_available():
-    print(f"GPU: {torch.cuda.get_device_name(0)}")
+if __name__ == '__main__':
+    os.makedirs(OUT_DIR, exist_ok=True)
 
-print("\nLoading CIFAR-10...")
-train_ds, test_ds = get_cifar10(DATA_DIR)
-test_loader = torch.utils.data.DataLoader(
-    test_ds, batch_size=512, shuffle=False, num_workers=2)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Device: {device}")
+    if torch.cuda.is_available():
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-labeled_idx, unlabeled_idx = initial_labeled_set(
-    train_ds, n_per_class=1, seed=SEED)
-print(f"Initial labeled: {len(labeled_idx)} | Unlabeled: {len(unlabeled_idx)}")
+    print("\nLoading CIFAR-10...")
+    train_ds, test_ds = get_cifar10(DATA_DIR)
+    test_loader = torch.utils.data.DataLoader(
+        test_ds, batch_size=512, shuffle=False, num_workers=2)
 
-results = run_tpcrp(
-    train_dataset=train_ds,
-    test_loader=test_loader,
-    device=device,
-    budget=BUDGET,
-    max_labeled=MAX_LABELED,
-    simclr_epochs=SIMCLR_EPOCHS,
-    classifier_epochs=CLF_EPOCHS,
-    initial_labeled_idx=labeled_idx,
-    initial_unlabeled_idx=unlabeled_idx,
-    seed=SEED,
-)
+    labeled_idx, unlabeled_idx = initial_labeled_set(
+        train_ds, n_per_class=1, seed=SEED)
+    print(f"Initial labeled: {len(labeled_idx)} | Unlabeled: {len(unlabeled_idx)}")
 
-# Save CSV
-csv_path = os.path.join(OUT_DIR, 'results_test.csv')
-with open(csv_path, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=['n_labeled', 'accuracy'])
-    writer.writeheader()
-    writer.writerows(results)
+    results = run_tpcrp(
+        train_dataset=train_ds,
+        test_loader=test_loader,
+        device=device,
+        budget=BUDGET,
+        max_labeled=MAX_LABELED,
+        simclr_epochs=SIMCLR_EPOCHS,
+        classifier_epochs=CLF_EPOCHS,
+        initial_labeled_idx=labeled_idx,
+        initial_unlabeled_idx=unlabeled_idx,
+        seed=SEED,
+    )
 
-# Save plot
-n_labeled  = [r['n_labeled']      for r in results]
-accuracies = [r['accuracy'] * 100 for r in results]
+    # Save CSV
+    csv_path = os.path.join(OUT_DIR, 'results_test.csv')
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['n_labeled', 'accuracy'])
+        writer.writeheader()
+        writer.writerows(results)
 
-plt.figure(figsize=(8, 5))
-plt.plot(n_labeled, accuracies, marker='o', linewidth=2, label='TPC RP (test run)')
-plt.xlabel('Number of Labeled Examples')
-plt.ylabel('Test Accuracy (%)')
-plt.title('TPC RP — Test Run (low epochs, sanity check only)')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plot_path = os.path.join(OUT_DIR, 'accuracy_curve_test.png')
-plt.savefig(plot_path, dpi=150)
+    # Save plot
+    n_labeled  = [r['n_labeled']      for r in results]
+    accuracies = [r['accuracy'] * 100 for r in results]
 
-print()
-print("=== TEST RUN COMPLETE ===")
-for r in results:
-    print(f"  |L|={r['n_labeled']:3d}  acc={r['accuracy']*100:.2f}%")
-print(f"\nCSV  -> {csv_path}")
-print(f"Plot -> {plot_path}")
-print("\nAll components working. Run main.py for the full experiment.")
+    plt.figure(figsize=(8, 5))
+    plt.plot(n_labeled, accuracies, marker='o', linewidth=2, label='TPC RP (test run)')
+    plt.xlabel('Number of Labeled Examples')
+    plt.ylabel('Test Accuracy (%)')
+    plt.title('TPC RP — Test Run (low epochs, sanity check only)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plot_path = os.path.join(OUT_DIR, 'accuracy_curve_test.png')
+    plt.savefig(plot_path, dpi=150)
+
+    print()
+    print("=== TEST RUN COMPLETE ===")
+    for r in results:
+        print(f"  |L|={r['n_labeled']:3d}  acc={r['accuracy']*100:.2f}%")
+    print(f"\nCSV  -> {csv_path}")
+    print(f"Plot -> {plot_path}")
+    print("\nAll components working. Run main.py for the full experiment.")
