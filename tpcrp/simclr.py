@@ -92,7 +92,7 @@ def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu'):
             optimizer.step()
             total_loss += loss.item()
         scheduler.step()
-        if epoch % 10 == 0 or epoch == 1:
+        if epoch % 10 == 0 or epoch == 1 or epoch == epochs:
             avg = total_loss / len(loader)
             print(f"  SimCLR epoch {epoch:3d}/{epochs} | loss {avg:.4f}")
 
