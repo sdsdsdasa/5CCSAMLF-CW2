@@ -18,7 +18,7 @@ from tpcrp.active_loop import run_tpcrp
 def main():
     # ── Config (paper's actual settings, Appendix F) ────────────────────────
     BUDGET          = 10      # B — samples queried per AL iteration
-    MAX_LABELED     = 60     # stop when |L| reaches this (paper: 10–300)
+    MAX_LABELED     = BUDGET*6     # stop when |L| reaches this (paper: 6 iternations)
     INITIAL_PER_CLS = 1       # 1 labeled example per class → |L0| = 10
     SIMCLR_EPOCHS   = 500     # paper: SimCLR trained for 500 epochs per iteration
     CLF_EPOCHS      = 200     # paper: linear eval uses 2x base epochs (200)
