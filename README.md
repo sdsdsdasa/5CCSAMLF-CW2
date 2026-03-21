@@ -30,18 +30,38 @@ requirements.txt    # Python dependencies
 
 ```bash
 python -m venv venv
-source venv/Scripts/activate   # Windows Git Bash
+source venv/Scripts/activate        # Windows Git Bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install -r requirements.txt
 ```
 
+CIFAR-10 is downloaded automatically to `data/` on first run.
+
 ## Run
 
+**Quick sanity check** (3 SimCLR epochs, 1 AL iteration, ~minutes):
+```bash
+python test_run.py
+```
+Outputs saved to `results/test/`: `results_test.csv`, `accuracy_curve_test.png`
+
+**Full experiment** (500 SimCLR epochs × 6 AL iterations, requires GPU):
 ```bash
 python main.py
 ```
+Outputs saved to `results/`: `results.csv`, `accuracy_curve.png`
 
-Outputs saved to `results/`:
-- `results.csv` — test accuracy at each AL iteration
-- `accuracy_curve.png` — accuracy vs number of labeled examples
+## Training Config (paper's Appendix F)
 
-> For full accuracy, run on a GPU (Google Colab recommended). CIFAR-10 data is downloaded automatically to `data/`.
+| Component | Setting |
+|-----------|---------|
+| SimCLR backbone | ResNet-18, 3×3 first conv, no maxpool |
+| SimCLR training | SGD lr=0.4, momentum=0.9, cosine schedule, 500 epochs |
+| Clustering | K-means, up to 500 clusters, min cluster size = 5 |
+| Typicality | Inverse mean distance to K=20 nearest neighbours |
+| Classifier | Frozen encoder + linear layer, SGD lr=2.5, Nesterov, 200 epochs |
+| Initial labeled set | 1 sample per class → \|L₀\| = 10 |
+| Budget per iteration | B = 10 |
+| Iterations | 6 (stopping at \|L\| = 70) |
+
+> A GPU is required for the full run. Tested on RTX 4070 SUPER with CUDA 12.8.
