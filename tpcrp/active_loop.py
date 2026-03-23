@@ -3,6 +3,7 @@ TPC RP active learning loop.
 
 Each iteration:
   1. Train SimCLR on all data (labeled + unlabeled) — 500 epochs, SGD lr=0.4
+     (warm-start variant: 50 epochs on iteration 1, warmup_epochs on iterations 2+)
   2. Extract L2-normalised embeddings for all data
   3. K-means with n_clusters = min(|L| + B, 500)
   4. Iteratively select B samples: pick largest uncovered cluster (size > 5),
@@ -29,7 +30,8 @@ def run_tpcrp(train_dataset, test_loader, device,
               classifier_epochs=200,
               initial_labeled_idx=None,
               initial_unlabeled_idx=None,
-              seed=42):
+              seed=42,
+              warmup_epochs=None):
     """
     Full TPC RP active learning experiment.
 
@@ -39,11 +41,14 @@ def run_tpcrp(train_dataset, test_loader, device,
         device:                torch device
         budget:                B — samples queried per iteration
         max_labeled:           stop when |L| reaches this
-        simclr_epochs:         epochs to train SimCLR each iteration (paper: 500)
+        simclr_epochs:         epochs to train SimCLR on iteration 1 (paper: 500)
         classifier_epochs:     epochs to train linear classifier (paper: 200)
         initial_labeled_idx:   list of initial labeled indices
         initial_unlabeled_idx: list of initial unlabeled indices
         seed:                  random seed
+        warmup_epochs:         if set, fine-tune SimCLR for this many epochs on
+                               iterations 2+ instead of retraining from scratch.
+                               None (default) = original behaviour (scratch every time).
 
     Returns:
         results: list of dicts with keys 'n_labeled' and 'accuracy'
@@ -52,6 +57,8 @@ def run_tpcrp(train_dataset, test_loader, device,
     unlabeled_idx = list(initial_unlabeled_idx)
     results = []
 
+    simclr_model = None   # carried across iterations when warmup_epochs is set
+
     iteration = 0
     while len(labeled_idx) < max_labeled:
         iteration += 1
@@ -59,12 +66,21 @@ def run_tpcrp(train_dataset, test_loader, device,
 
         all_idx = labeled_idx + unlabeled_idx
 
-        # --- Step 1: Train SimCLR from scratch ---
-        print("  Training SimCLR...")
-        simclr_model = SimCLRModel(proj_dim=128)
+        # --- Step 1: Train SimCLR ---
         simclr_loader = make_simclr_loader(train_dataset, all_idx, batch_size=512)
-        simclr_model = train_simclr(simclr_model, simclr_loader,
-                                    epochs=simclr_epochs, device=device)
+        if warmup_epochs is not None and simclr_model is not None:
+            # Warm-start: fine-tune the previous checkpoint
+            print(f"  Fine-tuning SimCLR ({warmup_epochs} epochs, warm-start)...")
+            simclr_model = train_simclr(simclr_model, simclr_loader,
+                                        epochs=warmup_epochs, device=device,
+                                        warmup=True)
+        else:
+            # Original: train from scratch (also used for iteration 1 in warm-start mode)
+            print(f"  Training SimCLR from scratch ({simclr_epochs} epochs)...")
+            simclr_model = SimCLRModel(proj_dim=128)
+            simclr_model = train_simclr(simclr_model, simclr_loader,
+                                        epochs=simclr_epochs, device=device,
+                                        warmup=False)
 
         # --- Step 2: Extract L2-normalised embeddings ---
         print("  Extracting embeddings...")

@@ -68,12 +68,17 @@ def nt_xent_loss(z1, z2, temperature=0.5):
     return loss
 
 
-def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu'):
+def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu', warmup=False):
     """Train SimCLR on unlabeled+labeled data (pairs of augmented views).
     Paper: SGD, lr=0.4, momentum=0.9, weight_decay=1e-4, cosine scheduler, 500 epochs.
+
+    warmup=False (default): train from scratch at the paper's lr=0.4.
+    warmup=True: fine-tune from an existing checkpoint at a lower lr=0.1,
+                 used by the warm-start modification for iterations 2+.
     """
+    actual_lr = 0.1 if warmup else lr
     model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr,
+    optimizer = torch.optim.SGD(model.parameters(), lr=actual_lr,
                                 momentum=0.9, weight_decay=1e-4,
                                 nesterov=False)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
