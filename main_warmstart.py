@@ -24,7 +24,7 @@ from tpcrp.active_loop import run_tpcrp
 
 def main():
     # ── Config ──────────────────────────────────────────────────────────────
-    BUDGET          = 10
+    BUDGET          = 30
     MAX_LABELED     = BUDGET * 6      # 60 — matches original run
     INITIAL_PER_CLS = 1               # |L0| = 10
     SIMCLR_EPOCHS   = 50             # iteration 1: train from scratch
