@@ -73,10 +73,10 @@ def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu', warmup=False):
     Paper: SGD, lr=0.4, momentum=0.9, weight_decay=1e-4, cosine scheduler, 500 epochs.
 
     warmup=False (default): train from scratch at the paper's lr=0.4.
-    warmup=True: fine-tune from an existing checkpoint at a lower lr=0.1,
+    warmup=True: fine-tune from an existing checkpoint at a lower lr=0.2,
                  used by the warm-start modification for iterations 2+.
     """
-    actual_lr = 0.1 if warmup else lr
+    actual_lr = 0.2 if warmup else lr
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=actual_lr,
                                 momentum=0.9, weight_decay=1e-4,
