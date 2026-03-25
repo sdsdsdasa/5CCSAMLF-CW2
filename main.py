@@ -17,7 +17,7 @@ from tpcrp.active_loop import run_tpcrp
 
 def main():
     # ── Config (paper's actual settings, Appendix F) ────────────────────────
-    BUDGET          = 30      # B — samples queried per AL iteration
+    BUDGET          = 10      # B — samples queried per AL iteration
     MAX_LABELED     = BUDGET*6     # stop when |L| reaches this (paper: 6 iternations)
     INITIAL_PER_CLS = 1       # 1 labeled example per class → |L0| = 10
     SIMCLR_EPOCHS   = 50     # paper: SimCLR trained for 500 epochs per iteration

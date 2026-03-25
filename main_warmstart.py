@@ -3,9 +3,9 @@ TPC RP — Warm-Start SimCLR modification (Task 3).
 
 Identical to main.py except SimCLR is fine-tuned from the previous
 iteration's checkpoint (10 epochs) instead of retrained from scratch
-(50 epochs) on iterations 2+.
+(500 epochs) on iterations 2+.
 
-Total SimCLR epochs: 50 + 4x10 = 90  (vs 50x5 = 250 in original)
+Total SimCLR epochs: 500 + 4x100 = 900  (vs 50x5 = 2500 in original)
 
 Saves results to results/warmstart/:
     results_warmstart.csv
@@ -24,12 +24,12 @@ from tpcrp.active_loop import run_tpcrp
 
 def main():
     # ── Config ──────────────────────────────────────────────────────────────
-    BUDGET          = 30
+    BUDGET          = 10
     MAX_LABELED     = BUDGET * 6      # 60 — matches original run
     INITIAL_PER_CLS = 1               # |L0| = 10
-    SIMCLR_EPOCHS   = 50             # iteration 1: train from scratch
-    WARMUP_EPOCHS   = 10             # iterations 2+: fine-tune from checkpoint
-    CLF_EPOCHS      = 20
+    SIMCLR_EPOCHS   = 500             # iteration 1: train from scratch
+    WARMUP_EPOCHS   = 100             # iterations 2+: fine-tune from checkpoint
+    CLF_EPOCHS      = 200
     SEED            = 42
     DATA_DIR        = './data'
     OUT_DIR         = './results/warmstart'
@@ -83,7 +83,7 @@ def main():
     plt.figure(figsize=(8, 5))
 
     # Try to load original results for comparison
-    orig_csv = './results/50+20epchos/results.csv'
+    orig_csv = './results/500+200epchos/results.csv'
     if os.path.exists(orig_csv):
         import csv as csv_mod
         orig_n, orig_acc = [], []
@@ -92,7 +92,7 @@ def main():
                 orig_n.append(int(row['n_labeled']))
                 orig_acc.append(float(row['accuracy']) * 100)
         plt.plot(orig_n, orig_acc, marker='s', linewidth=2,
-                 linestyle='--', label='TPC RP (original, 50 epochs/iter)')
+                 linestyle='--', label='TPC RP (original, 500 epochs/iter)')
 
     plt.plot(n_labeled, accuracies, marker='o', linewidth=2,
              label=f'TPC RP (warm-start, {SIMCLR_EPOCHS}+{WARMUP_EPOCHS} epochs)')
