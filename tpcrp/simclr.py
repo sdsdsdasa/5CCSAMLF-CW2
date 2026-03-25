@@ -68,7 +68,7 @@ def nt_xent_loss(z1, z2, temperature=0.5):
     return loss
 
 
-def train_simclr(model, loader, epochs=500, lr=0.2, device='cpu', warmup=False):
+def train_simclr(model, loader, epochs=500, lr=0.4, device='cpu', warmup=False):
     """Train SimCLR on unlabeled+labeled data (pairs of augmented views).
     Paper: SGD, lr=0.4, momentum=0.9, weight_decay=1e-4, cosine scheduler, 500 epochs.
 
