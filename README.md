@@ -1,6 +1,6 @@
 # 5CCSAMLF-CW2
 
-KCL Machine Learning Coursework 2 — implementation of the **TPC RP** active learning algorithm from the paper *"Active Learning on a Budget: Opposite Strategies Suit High and Low Budgets"*, evaluated on CIFAR-10, with two proposed modifications.
+Machine Learning Coursework 2 — implementation of the **TPC RP** active learning algorithm from the paper *"Active Learning on a Budget: Opposite Strategies Suit High and Low Budgets"*, evaluated on CIFAR-10, with two proposed modifications.
 
 ## Algorithm
 
