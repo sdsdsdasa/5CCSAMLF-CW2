@@ -1,19 +1,22 @@
 """
-compare.py — Compare two TPC RP result CSVs.
+compare.py — Compare TPC RP result CSVs (2 or more).
 
 Usage:
-    # Pick interactively from discovered results:
+    # Interactive multi-select from discovered results:
     python compare.py
 
-    # Pass paths directly:
+    # Compare all CSVs found under results/ automatically:
+    python compare.py --all
+
+    # Pass 2+ paths directly:
     python compare.py results/50+20epchos/results.csv results/warmstart/results_warmstart.csv
 
-    # Optionally give custom labels:
+    # Optionally give custom labels (must match number of CSVs):
     python compare.py results/50+20epchos/results.csv results/warmstart/results_warmstart.csv \
-        --labels "Original (50 ep)" "Warm-Start (10 ep)"
+        --labels "Original (50 ep)" "Warm-Start (100 ep)"
 
 Output:
-    - Printed comparison table
+    - Printed comparison table (deltas relative to first/baseline curve)
     - results/comparison.png
 """
 
@@ -40,95 +43,143 @@ def load_csv(path):
     return n_labeled, accuracies
 
 
-def pick_csv(csvs, prompt):
-    """Interactive numbered menu to pick a CSV."""
-    print(f"\n{prompt}")
+def auto_label(path):
+    parts = path.replace('\\', '/').split('/')
+    return parts[-2] if len(parts) >= 2 else path
+
+
+def pick_csvs(csvs):
+    """Interactive numbered menu — enter comma-separated indices or 'all'."""
+    print("\nAvailable result files:")
     for i, path in enumerate(csvs):
         print(f"  [{i}] {path}")
+    print("\nEnter indices to compare (comma-separated, e.g. 0,2,3) or 'all':")
     while True:
         try:
-            choice = int(input("Enter number: "))
-            if 0 <= choice < len(csvs):
-                return csvs[choice]
+            raw = input("> ").strip()
+            if raw.lower() == 'all':
+                return list(csvs)
+            indices = [int(x.strip()) for x in raw.split(',')]
+            if len(indices) < 2:
+                print("  Select at least 2 files.")
+                continue
+            if all(0 <= i < len(csvs) for i in indices):
+                return [csvs[i] for i in indices]
         except (ValueError, KeyboardInterrupt):
             pass
-        print("  Invalid choice, try again.")
+        print("  Invalid input, try again.")
 
 
-def print_table(n_a, acc_a, label_a, n_b, acc_b, label_b):
-    """Print side-by-side comparison table."""
-    all_n = sorted(set(n_a) | set(n_b))
-    map_a = dict(zip(n_a, acc_a))
-    map_b = dict(zip(n_b, acc_b))
+def print_table(curves):
+    """
+    Print comparison table for N curves.
+    curves: list of (label, n_list, acc_list)
+    Deltas are shown relative to the first curve (baseline).
+    """
+    all_n = sorted(set(n for _, ns, _ in curves for n in ns))
+    maps  = [dict(zip(ns, accs)) for _, ns, accs in curves]
+    labels = [label for label, _, _ in curves]
 
-    col = 14
+    col = 13
+    header = f"{'|L|':>5}" + "".join(f"  {lbl:>{col}}" for lbl in labels)
+    if len(curves) > 1:
+        for lbl in labels[1:]:
+            header += f"  {'Δ vs base':>10}"
     print()
-    print(f"{'|L|':>5}  {label_a:>{col}}  {label_b:>{col}}  {'Delta':>9}")
-    print("-" * (5 + 2 + col + 2 + col + 2 + 9))
+    print(header)
+    print("-" * len(header))
+
     for n in all_n:
-        a = map_a.get(n)
-        b = map_b.get(n)
-        a_str = f"{a:.2f}%" if a is not None else "     -    "
-        b_str = f"{b:.2f}%" if b is not None else "     -    "
-        if a is not None and b is not None:
-            delta = b - a
-            d_str = f"{delta:+.2f} pp"
-        else:
-            d_str = "     -"
-        print(f"{n:>5}  {a_str:>{col}}  {b_str:>{col}}  {d_str:>9}")
+        row = f"{n:>5}"
+        vals = [m.get(n) for m in maps]
+        for v in vals:
+            row += f"  {f'{v:.2f}%' if v is not None else '-':>{col}}"
+        base = vals[0]
+        for v in vals[1:]:
+            if base is not None and v is not None:
+                row += f"  {v - base:>+9.2f} pp"
+            else:
+                row += f"  {'  -':>10}"
+        print(row)
     print()
 
-    # Summary
-    shared = [n for n in all_n if n in map_a and n in map_b]
-    if shared:
-        last = shared[-1]
-        delta_final = map_b[last] - map_a[last]
-        avg_delta = sum(map_b[n] - map_a[n] for n in shared) / len(shared)
-        wins_b = sum(1 for n in shared if map_b[n] > map_a[n])
-        print(f"  Final |L|={last}: {label_b} vs {label_a}  ->  {delta_final:+.2f} pp")
-        print(f"  Average delta across {len(shared)} shared points: {avg_delta:+.2f} pp")
-        print(f"  {label_b} wins {wins_b}/{len(shared)} iterations")
+    # Summary stats vs baseline
+    if len(curves) > 1:
+        base_map = maps[0]
+        for label, _, _ in curves[1:]:
+            i = labels.index(label)
+            shared = [n for n in all_n if n in base_map and n in maps[i]]
+            if not shared:
+                continue
+            last = shared[-1]
+            delta_final = maps[i][last] - base_map[last]
+            avg_delta   = sum(maps[i][n] - base_map[n] for n in shared) / len(shared)
+            wins        = sum(1 for n in shared if maps[i][n] > base_map[n])
+            print(f"  [{label}] vs [{labels[0]}]:")
+            print(f"    Final |L|={last}: {delta_final:+.2f} pp")
+            print(f"    Avg delta over {len(shared)} points: {avg_delta:+.2f} pp")
+            print(f"    Wins {wins}/{len(shared)} iterations")
+        print()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare two TPC RP result CSVs.")
-    parser.add_argument('csv_a', nargs='?', help='First CSV path (baseline)')
-    parser.add_argument('csv_b', nargs='?', help='Second CSV path (to compare)')
-    parser.add_argument('--labels', nargs=2, metavar=('LABEL_A', 'LABEL_B'),
-                        help='Legend labels for the two curves')
+    parser = argparse.ArgumentParser(
+        description="Compare 2+ TPC RP result CSVs.")
+    parser.add_argument('csvs', nargs='*', help='CSV paths to compare')
+    parser.add_argument('--all', action='store_true',
+                        help='Load every CSV found under results/ automatically')
+    parser.add_argument('--labels', nargs='+', metavar='LABEL',
+                        help='Legend labels (must match number of CSVs)')
     parser.add_argument('--out', default='results/comparison.png',
                         help='Output plot path (default: results/comparison.png)')
     args = parser.parse_args()
 
-    csvs = find_csvs()
-    if not csvs:
-        print("No CSV files found under results/. Run main.py or main_warmstart.py first.")
+    discovered = find_csvs()
+    if not discovered:
+        print("No CSV files found under results/. Run an experiment first.")
         sys.exit(1)
 
-    # Resolve paths
-    if args.csv_a and args.csv_b:
-        path_a, path_b = args.csv_a, args.csv_b
+    # Resolve which CSVs to use
+    if args.all:
+        paths = discovered
+    elif args.csvs:
+        paths = args.csvs
     else:
-        print("Available result files:")
-        path_a = pick_csv(csvs, "Select FIRST result (baseline):")
-        path_b = pick_csv(csvs, "Select SECOND result (to compare):")
+        paths = pick_csvs(discovered)
 
-    def auto_label(path):
-        parts = path.replace('\\', '/').split('/')
-        return parts[-2] if len(parts) >= 2 else path
+    if len(paths) < 2:
+        print("Need at least 2 CSVs to compare.")
+        sys.exit(1)
 
-    label_a = args.labels[0] if args.labels else auto_label(path_a)
-    label_b = args.labels[1] if args.labels else auto_label(path_b)
+    # Assign labels
+    if args.labels:
+        if len(args.labels) != len(paths):
+            print(f"--labels count ({len(args.labels)}) must match CSV count ({len(paths)}).")
+            sys.exit(1)
+        labels = args.labels
+    else:
+        labels = [auto_label(p) for p in paths]
 
-    n_a, acc_a = load_csv(path_a)
-    n_b, acc_b = load_csv(path_b)
+    # Load data
+    curves = []
+    for path, label in zip(paths, labels):
+        ns, accs = load_csv(path)
+        curves.append((label, ns, accs))
+        print(f"  Loaded [{label}]: {path}  ({len(ns)} points)")
 
-    print_table(n_a, acc_a, label_a, n_b, acc_b, label_b)
+    print_table(curves)
 
     # Plot
+    markers = ['s', 'o', '^', 'D', 'v', 'P', 'X', '*']
+    linestyles = ['--', '-', '-.', ':', '--', '-', '-.', ':']
+
     plt.figure(figsize=(8, 5))
-    plt.plot(n_a, acc_a, marker='s', linewidth=2, linestyle='--', label=label_a)
-    plt.plot(n_b, acc_b, marker='o', linewidth=2, label=label_b)
+    for i, (label, ns, accs) in enumerate(curves):
+        plt.plot(ns, accs,
+                 marker=markers[i % len(markers)],
+                 linestyle=linestyles[i % len(linestyles)],
+                 linewidth=2, label=label)
+
     plt.xlabel('Number of Labeled Examples')
     plt.ylabel('Test Accuracy (%)')
     plt.title('TPC RP — Result Comparison')
@@ -138,7 +189,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
     plt.savefig(args.out, dpi=150)
-    print(f"\nPlot saved to {args.out}")
+    print(f"Plot saved to {args.out}")
     plt.show()
 
 
