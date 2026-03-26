@@ -28,7 +28,7 @@ def main():
     MAX_LABELED     = BUDGET * 6      # 60 — matches original run
     INITIAL_PER_CLS = 1               # |L0| = 10
     SIMCLR_EPOCHS   = 50             # iteration 1: train from scratch
-    WARMUP_EPOCHS   = 50             # iterations 2+: fine-tune from checkpoint
+    WARMUP_EPOCHS   = 10             # iterations 2+: fine-tune from checkpoint
     CLF_EPOCHS      = 20
     SEED            = 42
     DATA_DIR        = './data'
