@@ -69,6 +69,7 @@ def main():
     print(f"\nTotal wall-clock time: {total_time/60:.1f} min")
 
     # Save CSV
+    os.makedirs(OUT_DIR, exist_ok=True)
     csv_path = os.path.join(OUT_DIR, 'results_uncertainty.csv')
     with open(csv_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['n_labeled', 'accuracy'])
