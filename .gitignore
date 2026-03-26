@@ -1,7 +1,12 @@
 # own folder and files
 ignore/
 .claude
-claude.md
+CLAUDE.md
+
+# generated data and outputs
+data/
+venv/
+.venv/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
