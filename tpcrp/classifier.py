@@ -62,3 +62,36 @@ def evaluate(model, test_loader, device='cpu'):
         correct += (preds == labels).sum().item()
         total += labels.size(0)
     return correct / total
+
+
+import numpy as np
+
+@torch.no_grad()
+def compute_uncertainty_scores(model, loader, device='cpu'):
+    """
+    Compute per-sample prediction entropy from the classifier.
+    Returns a numpy array of shape (N,) normalised to [0, 1],
+    aligned with the loader's sample order (no shuffle assumed).
+
+    Entropy H(x) = -sum_c p_c * log(p_c), max = log(num_classes).
+    Higher value = classifier is more uncertain about the sample.
+    """
+    model.eval()
+    model.to(device)
+    entropies = []
+    for imgs, _ in loader:
+        imgs = imgs.to(device)
+        probs = torch.softmax(model(imgs), dim=1)
+        # clamp to avoid log(0)
+        log_probs = torch.log(probs.clamp(min=1e-10))
+        entropy = -(probs * log_probs).sum(dim=1)
+        entropies.append(entropy.cpu())
+    entropies = torch.cat(entropies).numpy()
+
+    # Normalise to [0, 1] globally so it can be combined with typicality
+    lo, hi = entropies.min(), entropies.max()
+    if hi > lo:
+        entropies = (entropies - lo) / (hi - lo)
+    else:
+        entropies = np.ones_like(entropies)
+    return entropies

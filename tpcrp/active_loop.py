@@ -18,7 +18,8 @@ import torch
 
 from tpcrp.simclr import SimCLRModel, train_simclr, extract_embeddings
 from tpcrp.clustering import run_kmeans, select_query_indices, MAX_CLUSTERS
-from tpcrp.classifier import LinearClassifier, train_classifier, evaluate
+from tpcrp.classifier import (LinearClassifier, train_classifier, evaluate,
+                               compute_uncertainty_scores)
 from tpcrp.dataset import (make_simclr_loader, make_embed_loader,
                             make_classifier_loader)
 
@@ -31,7 +32,8 @@ def run_tpcrp(train_dataset, test_loader, device,
               initial_labeled_idx=None,
               initial_unlabeled_idx=None,
               seed=42,
-              warmup_epochs=None):
+              warmup_epochs=None,
+              use_uncertainty=False):
     """
     Full TPC RP active learning experiment.
 
@@ -49,6 +51,9 @@ def run_tpcrp(train_dataset, test_loader, device,
         warmup_epochs:         if set, fine-tune SimCLR for this many epochs on
                                iterations 2+ instead of retraining from scratch.
                                None (default) = original behaviour (scratch every time).
+        use_uncertainty:       if True, weight typicality scores by classifier
+                               prediction entropy from the previous iteration.
+                               Iteration 1 falls back to pure typicality (no classifier yet).
 
     Returns:
         results: list of dicts with keys 'n_labeled' and 'accuracy'
@@ -57,7 +62,8 @@ def run_tpcrp(train_dataset, test_loader, device,
     unlabeled_idx = list(initial_unlabeled_idx)
     results = []
 
-    simclr_model = None   # carried across iterations when warmup_epochs is set
+    simclr_model   = None   # carried across iterations when warmup_epochs is set
+    prev_classifier = None  # previous iteration's classifier for uncertainty scoring
 
     iteration = 0
     while len(labeled_idx) < max_labeled:
@@ -94,6 +100,15 @@ def run_tpcrp(train_dataset, test_loader, device,
 
         # --- Step 4: Select B queries iteratively ---
         unlabeled_positions = list(range(len(labeled_idx), len(all_idx)))
+
+        # Compute uncertainty scores from previous iteration's classifier (if any)
+        uncertainty_scores = None
+        if use_uncertainty and prev_classifier is not None:
+            print("  Computing uncertainty scores from previous classifier...")
+            unc_loader = make_embed_loader(train_dataset, all_idx, batch_size=512)
+            uncertainty_scores = compute_uncertainty_scores(
+                prev_classifier, unc_loader, device)
+
         selected_positions = select_query_indices(
             cluster_labels=cluster_labels,
             embeddings=embeddings,
@@ -101,6 +116,7 @@ def run_tpcrp(train_dataset, test_loader, device,
             all_indices=all_idx,
             unlabeled_positions=unlabeled_positions,
             budget=budget,
+            uncertainty_scores=uncertainty_scores,
         )
         selected_orig_idx = [all_idx[p] for p in selected_positions]
         print(f"  Selected {len(selected_orig_idx)} samples to query")
@@ -121,5 +137,7 @@ def run_tpcrp(train_dataset, test_loader, device,
         acc = evaluate(classifier, test_loader, device)
         print(f"  Test accuracy: {acc*100:.2f}%  (|L|={len(labeled_idx)})")
         results.append({'n_labeled': len(labeled_idx), 'accuracy': acc})
+
+        prev_classifier = classifier  # carry forward for next iteration's uncertainty
 
     return results

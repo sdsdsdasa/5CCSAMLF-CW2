@@ -62,7 +62,8 @@ def _typicality_in_cluster(embeddings, member_positions):
 
 
 def select_query_indices(cluster_labels, embeddings, labeled_indices,
-                         all_indices, unlabeled_positions, budget):
+                         all_indices, unlabeled_positions, budget,
+                         uncertainty_scores=None):
     """
     Iteratively select B samples to query (paper's iterative procedure):
       For each query slot:
@@ -78,6 +79,9 @@ def select_query_indices(cluster_labels, embeddings, labeled_indices,
         all_indices:        list of all original dataset indices (labeled + unlabeled)
         unlabeled_positions: list of positions (into N arrays) that are unlabeled
         budget:             B — number of samples to query
+        uncertainty_scores: optional np.ndarray (N,) in [0, 1] — per-sample
+                            classifier entropy, aligned with all_indices positions.
+                            When provided, final score = typicality × uncertainty.
 
     Returns:
         selected_positions: list of positions to query
@@ -134,7 +138,12 @@ def select_query_indices(cluster_labels, embeddings, labeled_indices,
         scores = _typicality_in_cluster(embeddings, all_members)
         member_to_score = {p: s for p, s in zip(all_members, scores)}
 
-        # Pick most typical unlabeled member
+        # Optionally weight by classifier uncertainty (typicality × entropy)
+        if uncertainty_scores is not None:
+            for p in all_members:
+                member_to_score[p] *= uncertainty_scores[p]
+
+        # Pick most typical (and most uncertain) unlabeled member
         best = max(unlabeled_members, key=lambda p: member_to_score[p])
         selected.append(best)
         labeled_pos_set.add(best)
